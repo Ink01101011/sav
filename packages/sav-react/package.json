@@ -1,0 +1,56 @@
+{
+  "name": "sav-react",
+  "version": "0.1.0",
+  "description": "React bindings for SAV server action validation.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=18.18"
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format esm,cjs --dts --clean --target es2022 --external react --external sav-core",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "lint": "eslint src --max-warnings=0",
+    "prepack": "pnpm build"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "sav-core": "^0.1.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.14",
+    "react": "^19.2.4",
+    "sav-core": "workspace:*"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Ink01101011/sav.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Ink01101011/sav/issues"
+  },
+  "homepage": "https://github.com/Ink01101011/sav#readme"
+}
