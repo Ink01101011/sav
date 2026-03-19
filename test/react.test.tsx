@@ -60,13 +60,13 @@ function HookHarness<TOutput>({
     hookOptions.preventEnterSubmit = preventEnterSubmit;
   }
 
-  const { data, errors, onAction, getFieldError, onsubmit } = useSAVAction(
+  const { data, errors, onAction, getFieldError, onsubmit, onKeyDown } = useSAVAction(
     action,
     hookOptions,
   );
 
   return (
-    <form data-testid="form" onSubmit={onsubmit}>
+    <form data-testid="form" onSubmit={onsubmit} onKeyDown={onKeyDown}>
       <input data-testid="text-input" name="text-input" />
       <textarea data-testid="text-area" name="text-area" />
       <button

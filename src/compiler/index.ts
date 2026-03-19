@@ -21,6 +21,26 @@ const ALLOWED_RULES = new Set([
   "optional",
 ]);
 
+const NAME_CONVENTION_TYPES_IGNORE_LOWERCASE = new Set([
+  "string",
+  "number",
+  "boolean",
+  "date",
+  "file",
+  "unknown",
+  "any",
+  "never",
+  "null",
+  "undefined",
+  "function",
+  "object",
+  "[]",
+  "array",
+  "formdata",
+  "true",
+  "false",
+]);
+
 const RULE_ALIASES: Record<string, string> = {
   min: "minValue",
   max: "maxValue",
@@ -74,8 +94,32 @@ export class SAVCompiler {
 
   private buildValidator(prop: PropertySignature): string {
     const { optional, rules } = this.extractConstraints(prop);
-    const validator = this.getBaseValidator(prop.getType().getText(), prop.getName(), rules);
+    const tsType = prop.getType().getText();
+    const propName = prop.getName();
 
+    let validator = "";
+
+    // 1. เช็ค Literal Union ก่อน (ฟีเจอร์ที่คุณเขียนไว้ดีมาก เก็บไว้ใช้งานต่อ)
+    const literalUnion = this.getStringLiteralUnionValidator(
+      tsType,
+      rules,
+      propName,
+    );
+
+    if (literalUnion) {
+      validator = literalUnion;
+    } else {
+      const basePipes = this.getBasePipes(tsType);
+
+      const allPipes = [...basePipes, ...rules];
+
+      validator =
+        allPipes.length > 1
+          ? `v.pipe(${allPipes.join(", ")})`
+          : (allPipes[0] ?? "v.any()");
+    }
+
+    // 5. จัดการเครื่องหมาย ? หรือคำสั่ง @sav optional
     if (prop.hasQuestionToken() || optional) {
       return `v.optional(${validator})`;
     }
@@ -83,52 +127,66 @@ export class SAVCompiler {
     return validator;
   }
 
-  private getBaseValidator(
-    tsType: string,
-    propName: string,
-    rules: string[],
-  ): string {
-    const literalUnionValidator = this.getStringLiteralUnionValidator(tsType, rules, propName);
+  private getBasePipes(tsType: string): string[] {
+    const cleanType = tsType.trim();
+    // Handle array types
 
-    if (literalUnionValidator) {
-      return literalUnionValidator;
+    if (
+      cleanType.endsWith("[]") ||
+      /^Array<.*>$/.test(cleanType) ||
+      /^ReadonlyArray<.*>$/.test(cleanType)
+    ) {
+      const innerType = cleanType
+        .replace(/\[\]$/, "")
+        .replace(/^(?:Readonly)?Array<(.*)>$/, "$1")
+        .trim();
+      return [`v.array(${innerType}Schema)`];
     }
 
-    const pipe = rules.length > 0 ? `[${rules.join(", ")}]` : undefined;
+    // Handle tuple types like [string, number] or [string, number, boolean]
+    if (
+      cleanType.startsWith("[") &&
+      cleanType.endsWith("]")
+    ) // support simple tuples like [string, number]
+    {
+      const innerTypes = cleanType
+        .slice(1, -1)
+        .split(",")
+        .map((t) => t.trim());
+      const validators = innerTypes.map((t) => {
+        const pipes = this.getBasePipes(t);
+        return pipes.length > 1
+          ? `v.pipe(${pipes.join(", ")})`
+          : (pipes[0] ?? "v.any()");
+      });
+      return [`v.tuple([${validators.join(", ")}])`];
+    }
 
-    switch (tsType) {
+    // Handle custom types (interfaces/DTOs)
+    if (
+      !NAME_CONVENTION_TYPES_IGNORE_LOWERCASE.has(cleanType.toLowerCase()) &&
+      /^[A-Z]/.test(cleanType)
+    ) {
+      return [`${cleanType}Schema`];
+    }
+
+    switch (cleanType) {
       case "string":
-        return pipe ? `v.string(${pipe})` : "v.string()";
-
-      case "number": {
-        const schema = pipe ? `v.number(${pipe})` : "v.number()";
-        return `v.coerce(${schema}, (input) => input === "" ? Number.NaN : Number(input))`;
-      }
-
-      case "boolean": {
-        const schema = pipe ? `v.boolean(${pipe})` : "v.boolean()";
-        return `v.coerce(${schema}, (input) => input === "on" || input === "true" || input === true)`;
-      }
-
-      case "Date": {
-        const schema = pipe ? `v.date(${pipe})` : "v.date()";
-        return `v.coerce(${schema}, (input) => input instanceof Date ? input : new Date(String(input)))`;
-      }
-
-      case "File": {
-        if (rules.length > 0) {
-          throw new Error(
-            `SAV: File validators are not yet supported for property "${propName}".`,
-          );
-        }
-
-        return "v.special<File>((input) => input instanceof File)";
-      }
-
+        return ["v.string()"];
+      case "number":
+        return ["v.string()", "v.transform(Number)", "v.number()"];
+      case "boolean":
+        return [
+          "v.unknown()",
+          'v.transform(v => v === "on" || v === "true" || v === true)',
+          "v.boolean()",
+        ];
+      case "Date":
+        return ["v.string()", "v.transform(v => new Date(v))", "v.date()"];
+      case "File":
+        return ["v.instance(File)"];
       default:
-        throw new Error(
-          `SAV: Unsupported TypeScript type "${tsType}" on property "${propName}".`,
-        );
+        return ["v.any()"];
     }
   }
 
@@ -142,7 +200,10 @@ export class SAVCompiler {
       .map((member) => member.trim())
       .filter(Boolean);
 
-    if (members.length < 2 || !members.every((member) => /^(['"]).*\1$/.test(member))) {
+    if (
+      members.length < 2 ||
+      !members.every((member) => /^(['"]).*\1$/.test(member))
+    ) {
       return undefined;
     }
 
@@ -152,7 +213,9 @@ export class SAVCompiler {
       );
     }
 
-    const values = members.map((member) => JSON.stringify(member.slice(1, -1))).join(", ");
+    const values = members
+      .map((member) => JSON.stringify(member.slice(1, -1)))
+      .join(", ");
     return `v.picklist([${values}])`;
   }
 

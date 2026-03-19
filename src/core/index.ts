@@ -10,12 +10,15 @@ export type ActionResponse<T> =
 
 export type ActionInput = FormData | Record<string, unknown>;
 
-export function createAction<TSchema extends v.BaseSchema<unknown, unknown>, TOutput>(
+export function createAction<
+  TSchema extends v.BaseSchema<unknown, unknown>,
+  TOutput,
+>(
   schema: TSchema,
   actionFn: (data: v.Output<TSchema>) => MaybePromise<TOutput>,
 ) {
   return async (input: ActionInput): Promise<ActionResponse<TOutput>> => {
-    const rawData = input instanceof FormData ? formDataToObject(input) : input;
+    const rawData = input instanceof FormData ? parseFormData(input) : input;
     const result = v.safeParse(schema, rawData);
 
     if (!result.success) {
@@ -32,25 +35,32 @@ export function createAction<TSchema extends v.BaseSchema<unknown, unknown>, TOu
   };
 }
 
-function formDataToObject(
-  formData: FormData,
-): Record<string, FormDataEntryValue | FormDataEntryValue[]> {
-  const output: Record<string, FormDataEntryValue | FormDataEntryValue[]> = {};
+export function parseFormData(formData: FormData): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
 
   formData.forEach((value, key) => {
-    const currentValue = output[key];
+    // แปลง key เช่น "items[0].id" หรือ "items[0][id]" ให้เป็น array: ['items', '0', 'id']
+    const parts = key.replace(/\]/g, "").split(/\[|\./).filter(Boolean);
 
-    if (currentValue === undefined) {
-      output[key] = value;
-      return;
+    let current = result;
+
+    for (let partIndex = 0; partIndex < parts.length; partIndex++) {
+      const part = parts[partIndex];
+      const nextPart = parts[partIndex + 1];
+
+      // ถ้าเป็นชิ้นสุดท้าย (เช่น 'id') ให้ใส่ค่า value ลงไปเลย
+      if (partIndex === parts.length - 1) {
+        current[part!] = value;
+      } else {
+        if (!current[part!]) {
+          current[part!] = isNaN(Number(nextPart)) ? {} : [];
+        }
+        current = current[part!] as unknown as Record<string, unknown>;
+      }
     }
-
-    output[key] = Array.isArray(currentValue)
-      ? [...currentValue, value]
-      : [currentValue, value];
   });
 
-  return output;
+  return result;
 }
 
 function formatIssues(

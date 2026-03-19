@@ -58,8 +58,8 @@
     "prepack": "pnpm build",
     "publint": "publint .",
     "pack:check": "npm pack --dry-run",
-    "audit": "pnpm audit --prod",
-    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm publint && pnpm pack:check && pnpm audit --prod",
+    "audit": "pnpm audit --prod --registry https://registry.npmjs.org",
+    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm publint && pnpm pack:check && pnpm run audit",
     "prepare": "husky"
   },
   "peerDependencies": {

@@ -22,6 +22,7 @@
 ```bash
 npm install sav-validator valibot
 ```
+
 ### 2. Define your DTO
 
 Create a TypeScript interface. Use the `/** @sav ... */` JSDoc syntax to add validation rules.
@@ -117,21 +118,19 @@ export function RegisterForm() {
 
 The compiler currently supports the following `@sav` rules:
 
-| Tag | Resulting Validator |
-|-----|-------------------|
-| `email` | `v.email()` |
-| `url` | `v.url()` |
-| `uuid` | `v.uuid()` |
-| `regex(/.../)` | `v.regex(/.../)` |
-| `minLength(x)` | `v.minLength(x)` |
-| `maxLength(x)` | `v.maxLength(x)` |
-| `length(x)` | `v.length(x)` |
-| `includes(x)` | `v.includes(x)` |
-| `startsWith(x)` | `v.startsWith(x)` |
-| `endsWith(x)` | `v.endsWith(x)` |
-| `min(x)` | `v.minValue(x)` |
-| `max(x)` | `v.maxValue(x)` |
-| `optional` | Wraps field schema with `v.optional(...)` |
+- `email` -> `v.email()`
+- `url` -> `v.url()`
+- `uuid` -> `v.uuid()`
+- `regex(/.../)` -> `v.regex(/.../)`
+- `minLength(x)` -> `v.minLength(x)`
+- `maxLength(x)` -> `v.maxLength(x)`
+- `length(x)` -> `v.length(x)`
+- `includes(x)` -> `v.includes(x)`
+- `startsWith(x)` -> `v.startsWith(x)`
+- `endsWith(x)` -> `v.endsWith(x)`
+- `min(x)` -> `v.minValue(x)`
+- `max(x)` -> `v.maxValue(x)`
+- `optional` -> wraps the field schema with `v.optional(...)`
 
 ---
 

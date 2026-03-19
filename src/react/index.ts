@@ -45,12 +45,28 @@ export function useSAVAction<TOutput>(
       const formData = new FormData(event.currentTarget);
       formAction(formData);
     },
+    [formAction],
+  );
+
+  const onKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLFormElement>) => {
+      if (!preventEnterSubmit || event.key !== "Enter") {
+        return;
+      }
+
+      if (event.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
+      event.preventDefault();
+    },
     [preventEnterSubmit],
   );
 
   return {
     onAction: formAction,
     onsubmit,
+    onKeyDown,
     isPending,
     errors,
     data,
