@@ -1,5 +1,5 @@
 {
-  "name": "sav-validator",
+  "name": "valiact",
   "version": "0.1.0",
   "description": "Server Action Validation - runtime helpers, React bindings, and schema compiler.",
   "license": "MIT",
@@ -42,7 +42,7 @@
   ],
   "sideEffects": false,
   "bin": {
-    "sav-validator": "./dist/compiler/cli.cjs"
+    "valiact": "./dist/compiler/cli.cjs"
   },
   "publishConfig": {
     "access": "public"

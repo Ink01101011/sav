@@ -20,7 +20,7 @@
 ### 1. Install Dependencies
 
 ```bash
-npm install sav-validator valibot
+npm install valiact valibot
 ```
 
 ### 2. Define your DTO
@@ -46,7 +46,7 @@ export interface RegisterDTO {
 Run the SAV CLI to generate the schemas.
 
 ```bash
-npx sav-validator generate --input "**/types.ts" --output "app/actions/schemas.gen.ts"
+npx valiact generate --input "**/types.ts" --output "app/actions/schemas.gen.ts"
 ```
 
 ### 4. Create a Server Action
@@ -57,7 +57,7 @@ Wrap your logic with `createAction`. The data argument is fully typed and valida
 // app/actions/user.ts
 'use server';
 
-import { createAction } from 'sav-validator/core';
+import { createAction } from 'valiact/core';
 import { RegisterDTOSchema } from './schemas.gen';
 
 export const registerUser = createAction(RegisterDTOSchema, async (data) => {
@@ -79,7 +79,7 @@ Handle loading states and validation errors with zero effort using the custom ho
 ```typescript
 'use client';
 
-import { useSAVAction } from 'sav-validator/react';
+import { useSAVAction } from 'valiact/react';
 import { registerUser } from './actions/user';
 
 export function RegisterForm() {
@@ -108,9 +108,9 @@ export function RegisterForm() {
 
 ## 🛠️ How it Works
 
-- **sav-validator/compiler**: Scans your code, reads JSDoc, and generates Valibot pipes.
-- **sav-validator/core**: Intercepts FormData, performs type coercion (String → Number), and runs validation.
-- **sav-validator/react**: Connects Server Action results to your UI state.
+- **valiact/compiler**: Scans your code, reads JSDoc, and generates Valibot pipes.
+- **valiact/core**: Intercepts FormData, performs type coercion (String → Number), and runs validation.
+- **valiact/react**: Connects Server Action results to your UI state.
 
 ---
 

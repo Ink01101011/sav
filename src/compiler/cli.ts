@@ -9,7 +9,7 @@ import { SAVCompiler } from "./index.js";
 const program = new Command();
 
 program
-  .name("sav-validator")
+  .name("valiact")
   .description("Generate Valibot schemas from TypeScript DTOs")
   .version("0.2.0");
 

@@ -11,7 +11,7 @@ Since Next.js uses **SWC** (written in Rust) for its build pipeline, creating a 
 A standard library structure using **pnpm workspaces** is best for separating the compiler logic from the runtime hooks.
 
 ```
-sav-validator/
+valiact/
 ├── packages/
 │   ├── sav-core/          # Runtime validation logic (Valibot based)
 │   ├── sav-compiler/      # TS Compiler API / AST logic
@@ -30,7 +30,7 @@ We'll use **Valibot** because it is significantly smaller than Zod, which is cri
 
 ```json
 {
-  "name": "sav-validator",
+  "name": "valiact",
   "version": "0.1.0",
   "private": true,
   "scripts": {
