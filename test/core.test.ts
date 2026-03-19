@@ -1,7 +1,7 @@
 import * as v from "valibot";
 import { describe, expect, it, vi } from "vitest";
 
-import { createAction } from "../src/index";
+import { createAction } from "../src/core/index";
 
 describe("createAction", () => {
   it("validates and coerces JSON-like payloads before calling action", async () => {

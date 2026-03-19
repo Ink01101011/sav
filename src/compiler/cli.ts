@@ -4,12 +4,12 @@ import { glob } from "glob";
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
-import { SAVCompiler } from "./index";
+import { SAVCompiler } from "./index.js";
 
 const program = new Command();
 
 program
-  .name("sav-compiler")
+  .name("sav-validator")
   .description("Generate Valibot schemas from TypeScript DTOs")
   .version("0.2.0");
 

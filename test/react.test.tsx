@@ -8,10 +8,10 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { startTransition } from "react";
-import type { ActionResponse } from "sav-core";
+import type { ActionResponse } from "../src/core/index";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { useSAVAction, UseSAVActionOptions } from "../src/index";
+import { useSAVAction, UseSAVActionOptions } from "../src/react/index";
 
 afterEach(() => {
   cleanup();
@@ -24,6 +24,7 @@ interface HookHarnessProps<TOutput> {
   payload: Record<string, PayloadValue>;
   onSuccess?: UseSAVActionOptions<TOutput>["onSuccess"];
   onError?: UseSAVActionOptions<TOutput>["onError"];
+  preventEnterSubmit?: UseSAVActionOptions<TOutput>["preventEnterSubmit"];
 }
 
 function toFormData(payload: Record<string, PayloadValue>): FormData {
@@ -48,20 +49,31 @@ function HookHarness<TOutput>({
   payload,
   onSuccess,
   onError,
+  preventEnterSubmit,
 }: HookHarnessProps<TOutput>) {
-
-  const { data, errors, formAction, getFieldError } = useSAVAction(action, {
+  const hookOptions: UseSAVActionOptions<TOutput> = {
     onError: (er) => onError?.(er),
     onSuccess: (data) => onSuccess?.(data),
-  });
+  };
+
+  if (preventEnterSubmit !== undefined) {
+    hookOptions.preventEnterSubmit = preventEnterSubmit;
+  }
+
+  const { data, errors, onAction, getFieldError, onsubmit } = useSAVAction(
+    action,
+    hookOptions,
+  );
 
   return (
-    <div>
+    <form data-testid="form" onSubmit={onsubmit}>
+      <input data-testid="text-input" name="text-input" />
+      <textarea data-testid="text-area" name="text-area" />
       <button
         type="button"
         onClick={() => {
           startTransition(() => {
-            void formAction(toFormData(payload));
+            void onAction(toFormData(payload));
           });
         }}
       >
@@ -70,7 +82,7 @@ function HookHarness<TOutput>({
       <div data-testid="data">{data ? JSON.stringify(data) : ""}</div>
       <div data-testid="errors">{errors ? JSON.stringify(errors) : ""}</div>
       <div data-testid="email-error">{getFieldError("email") ?? ""}</div>
-    </div>
+    </form>
   );
 }
 
@@ -149,5 +161,47 @@ describe("useSAVAction", () => {
     expect(screen.getByTestId("errors").textContent).toContain(
       "Validation failed",
     );
+  });
+
+  it("prevents Enter default on form when enabled", () => {
+    render(
+      <HookHarness
+        action={async () => ({ success: true, data: null })}
+        payload={{ email: "dev@sav.dev" }}
+        preventEnterSubmit
+      />,
+    );
+
+    const textInput = screen.getByTestId("text-input");
+    const enterEvent = new KeyboardEvent("keydown", {
+      key: "Enter",
+      bubbles: true,
+      cancelable: true,
+    });
+
+    textInput.dispatchEvent(enterEvent);
+
+    expect(enterEvent.defaultPrevented).toBe(true);
+  });
+
+  it("does not prevent Enter default for textarea", () => {
+    render(
+      <HookHarness
+        action={async () => ({ success: true, data: null })}
+        payload={{ email: "dev@sav.dev" }}
+        preventEnterSubmit
+      />,
+    );
+
+    const textArea = screen.getByTestId("text-area");
+    const enterEvent = new KeyboardEvent("keydown", {
+      key: "Enter",
+      bubbles: true,
+      cancelable: true,
+    });
+
+    textArea.dispatchEvent(enterEvent);
+
+    expect(enterEvent.defaultPrevented).toBe(false);
   });
 });

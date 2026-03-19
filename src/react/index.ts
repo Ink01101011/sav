@@ -1,19 +1,25 @@
-import { useActionState, useEffect } from "react";
-import type { ActionResponse } from "sav-core";
+import { useActionState, useCallback, useEffect } from "react";
+import type { ActionResponse } from "../core/index.js";
+
+export type { ActionErrors, ActionResponse, ActionInput } from "../core/index.js";
 
 export interface UseSAVActionOptions<TOutput> {
   onSuccess?: (data: TOutput) => void;
   onError?: (errors: Record<string, string[]>) => void;
+  preventEnterSubmit?: boolean;
 }
 
 export function useSAVAction<TOutput>(
   action: (formData: FormData) => Promise<ActionResponse<TOutput>>,
   options: UseSAVActionOptions<TOutput>,
 ) {
-  const { onError, onSuccess } = options ?? {};
+  const { onError, onSuccess, preventEnterSubmit } = options ?? {};
 
   const [state, formAction, isPending] = useActionState(
-    async (_previousState: ActionResponse<TOutput> | null, formData: FormData) => {
+    async (
+      _previousState: ActionResponse<TOutput> | null,
+      formData: FormData,
+    ) => {
       return action(formData);
     },
     null as ActionResponse<TOutput> | null,
@@ -33,8 +39,18 @@ export function useSAVAction<TOutput>(
   const errors = state && !state.success ? state.errors : undefined;
   const data = state && state.success ? state.data : undefined;
 
+  const onsubmit = useCallback(
+    (event: React.SubmitEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      const formData = new FormData(event.currentTarget);
+      formAction(formData);
+    },
+    [preventEnterSubmit],
+  );
+
   return {
-    formAction,
+    onAction: formAction,
+    onsubmit,
     isPending,
     errors,
     data,

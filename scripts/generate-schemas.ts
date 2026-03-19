@@ -15,7 +15,7 @@ if (!existsSync(inputPath)) {
 	process.exit(1);
 }
 
-const compilerModuleUrl = new URL("../packages/sav-compiler/src/index.ts", import.meta.url);
+const compilerModuleUrl = new URL("../src/compiler/index.ts", import.meta.url);
 const { SAVCompiler } = await import(compilerModuleUrl.href);
 const compiler = new SAVCompiler();
 const schemaCode = compiler.processFile(inputPath);
