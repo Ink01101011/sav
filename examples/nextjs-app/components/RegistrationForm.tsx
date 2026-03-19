@@ -1,36 +1,65 @@
-'use client';
+"use client";
 
-import { registerUser } from '@/actions/user';
-import { useSAVAction } from 'sav-react';
-import { useRouter } from 'next/navigation';
+import { registerUser } from "@/actions";
+import { useSAVAction } from "sav-react";
 
 export function RegisterForm() {
-  const router = useRouter();
-
-  const { formAction, isPending, getFieldError } = useSAVAction(registerUser, {
-    onSuccess: (data) => {
-      console.log('สร้าง User สำเร็จ:', data);
-      router.push('/dashboard');
+  const { formAction, isPending, getFieldError, errors, data } = useSAVAction(
+    registerUser,
+    {
+      onSuccess: (data) => {
+        console.log("สร้าง User สำเร็จ:", data);
+      },
+      onError: (errs) => {
+        console.error("เกิดข้อผิดพลาด:", errs);
+      },
     },
-    onError: (errs) => {
-      console.error('เกิดข้อผิดพลาด:', errs);
-    }
-  });
+  );
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form
+      action={formAction}
+      onSubmit={(e) => {
+        e.preventDefault();
+      }}
+      className="space-y-4 border-2 border-gray-600 rounded-md p-4"
+    >
       <div>
-        <input name="email" placeholder="Email" disabled={isPending} />
-        <span className="text-red-500">{getFieldError('email')}</span>
+        <input
+          name="email"
+          placeholder="Email"
+          className="outline-none"
+          value={data?.email}
+          disabled={isPending}
+        />
+        <span className="text-red-500">{errors?.email}</span>
       </div>
 
       <div>
-        <input name="age" type="number" placeholder="Age" disabled={isPending} />
-        <span className="text-red-500">{getFieldError('age')}</span>
+        <input
+          name="age"
+          type="number"
+          placeholder="Age"
+          className="outline-none"
+          disabled={isPending}
+          value={data?.age}
+        />
+        <span className="text-red-500">{errors?.age}</span>
+      </div>
+
+      <div>
+        <input
+          name="avatar"
+          type="file"
+          placeholder="Avatar"
+          className="outline-none"
+          disabled={isPending}
+        />
+        <span className="text-red-500">{errors?.avatar}</span>
       </div>
 
       <button type="submit" disabled={isPending}>
-        {isPending ? 'กำลังบันทึก...' : 'สมัครสมาชิก'}
+        {isPending ? "กำลังบันทึก..." : "สมัครสมาชิก"}
       </button>
     </form>
   );
