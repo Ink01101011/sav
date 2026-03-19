@@ -185,6 +185,39 @@ describe("SAVCompiler", () => {
     expect(output).toContain("export const EmployeeDTOSchema = v.object({");
   });
 
+  it("creates schema modules with imports when a file has related DTOs", async () => {
+    const filePath = await createSourceFile(
+      "multi-dto.ts",
+      `
+      export interface AddressDTO {
+        street: string;
+      }
+
+      export interface ProfileDTO {
+        name: string;
+        address: AddressDTO;
+      }
+      `,
+    );
+
+    const compiler = new SAVCompiler();
+    const modules = compiler.processFileAsModules(filePath);
+
+    expect(modules).toHaveLength(2);
+
+    const addressModule = modules.find((module) => module.interfaceName === "AddressDTO");
+    const profileModule = modules.find((module) => module.interfaceName === "ProfileDTO");
+
+    expect(addressModule?.fileName).toBe("address-dto.gen.ts");
+    expect(profileModule?.fileName).toBe("profile-dto.gen.ts");
+    expect(addressModule?.content).toContain("export const AddressDTOSchema = v.object({");
+    expect(profileModule?.content).toContain("export const ProfileDTOSchema = v.object({");
+    expect(profileModule?.content).toContain(
+      'import { AddressDTOSchema } from "./address-dto.gen";',
+    );
+    expect(profileModule?.content).toContain("address: AddressDTOSchema");
+  });
+
   it("throws when DTO includes unsupported TypeScript types", async () => {
     const filePath = await createSourceFile(
       "invalid-type.ts",

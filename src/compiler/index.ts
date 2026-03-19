@@ -51,6 +51,13 @@ type ConstraintResult = {
   optional: boolean;
 };
 
+export type GeneratedSchemaModule = {
+  interfaceName: string;
+  schemaName: string;
+  fileName: string;
+  content: string;
+};
+
 export class SAVCompiler {
   constructor(private readonly project: Project = new Project()) {}
 
@@ -67,7 +74,51 @@ export class SAVCompiler {
     return `${VALIBOT_IMPORT}${schemaBlocks}`;
   }
 
+  processFileAsModules(filePath: string): GeneratedSchemaModule[] {
+    const interfaces = this.getDTOInterfaces(filePath);
+    const interfaceNames = new Set(interfaces.map((intf) => intf.getName()));
+    const fileNameByInterface = new Map(
+      interfaces.map((intf) => [intf.getName(), this.toSchemaFileName(intf.getName())]),
+    );
+
+    return interfaces.map((intf) => {
+      const schemaDeclaration = this.generateSchema(intf).trimEnd();
+      const dependencySchemaNames = this.collectLocalDependencySchemaNames(
+        schemaDeclaration,
+        intf.getName(),
+        interfaceNames,
+      );
+
+      const importLines = dependencySchemaNames
+        .map((schemaName) => {
+          const interfaceName = schemaName.slice(0, -"Schema".length);
+          const depFileName = fileNameByInterface.get(interfaceName);
+
+          if (!depFileName) {
+            return "";
+          }
+
+          return `import { ${schemaName} } from "./${depFileName.replace(/\.ts$/, "")}";`;
+        })
+        .filter(Boolean)
+        .join("\n");
+
+      return {
+        interfaceName: intf.getName(),
+        schemaName: `${intf.getName()}Schema`,
+        fileName: this.toSchemaFileName(intf.getName()),
+        content: `${VALIBOT_IMPORT}${importLines ? `${importLines}\n\n` : ""}${schemaDeclaration}\n`,
+      };
+    });
+  }
+
   private generateSchemasForFile(filePath: string): string {
+    return this.getDTOInterfaces(filePath)
+      .map((intf) => this.generateSchema(intf))
+      .join("");
+  }
+
+  private getDTOInterfaces(filePath: string): InterfaceDeclaration[] {
     const sourceFile =
       this.project.getSourceFile(filePath) ??
       this.project.addSourceFileAtPathIfExists(filePath);
@@ -78,9 +129,30 @@ export class SAVCompiler {
 
     return sourceFile
       .getInterfaces()
-      .filter((intf) => intf.getName().endsWith("DTO"))
-      .map((intf) => this.generateSchema(intf))
-      .join("");
+      .filter((intf) => intf.getName().endsWith("DTO"));
+  }
+
+  private collectLocalDependencySchemaNames(
+    schemaDeclaration: string,
+    currentInterfaceName: string,
+    interfaceNames: ReadonlySet<string>,
+  ): string[] {
+    return [...interfaceNames]
+      .filter((name) => name !== currentInterfaceName)
+      .map((name) => `${name}Schema`)
+      .filter((schemaName) => schemaDeclaration.includes(schemaName));
+  }
+
+  private toSchemaFileName(interfaceName: string): string {
+    return `${this.toKebabCase(interfaceName)}.gen.ts`;
+  }
+
+  private toKebabCase(value: string): string {
+    return value
+      .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
+      .replace(/([A-Z])([A-Z][a-z])/g, "$1-$2")
+      .replace(/[_\s]+/g, "-")
+      .toLowerCase();
   }
 
   private generateSchema(intf: InterfaceDeclaration): string {
