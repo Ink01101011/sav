@@ -97,29 +97,9 @@ export class SAVCompiler {
     const tsType = prop.getType().getText();
     const propName = prop.getName();
 
-    let validator = "";
+    const literalUnion = this.getStringLiteralUnionValidator(tsType, rules, propName);
+    const validator = literalUnion ?? this.buildBaseValidator(tsType.trim(), rules, propName);
 
-    // 1. เช็ค Literal Union ก่อน (ฟีเจอร์ที่คุณเขียนไว้ดีมาก เก็บไว้ใช้งานต่อ)
-    const literalUnion = this.getStringLiteralUnionValidator(
-      tsType,
-      rules,
-      propName,
-    );
-
-    if (literalUnion) {
-      validator = literalUnion;
-    } else {
-      const basePipes = this.getBasePipes(tsType);
-
-      const allPipes = [...basePipes, ...rules];
-
-      validator =
-        allPipes.length > 1
-          ? `v.pipe(${allPipes.join(", ")})`
-          : (allPipes[0] ?? "v.any()");
-    }
-
-    // 5. จัดการเครื่องหมาย ? หรือคำสั่ง @sav optional
     if (prop.hasQuestionToken() || optional) {
       return `v.optional(${validator})`;
     }
@@ -127,67 +107,335 @@ export class SAVCompiler {
     return validator;
   }
 
-  private getBasePipes(tsType: string): string[] {
-    const cleanType = tsType.trim();
-    // Handle array types
+  private buildBaseValidator(cleanType: string, rules: string[], propName: string): string {
+    const normalizedType = this.normalizeType(cleanType);
+
+    if (normalizedType === "string") {
+      return rules.length > 0 ? `v.string([${rules.join(", ")}])` : `v.string()`;
+    }
+
+    if (normalizedType === "number") {
+      const inner = rules.length > 0 ? `v.number([${rules.join(", ")}])` : `v.number()`;
+      return `v.transform(v.string(), (input) => input === "" ? Number.NaN : Number(input), ${inner})`;
+    }
+
+    if (rules.length > 0) {
+      throw new Error(
+        `SAV: @sav validators are supported only on string or number fields, but found "${normalizedType}" on property "${propName}".`,
+      );
+    }
+
+    return this.buildTypeValidator(normalizedType, propName);
+  }
+
+  private buildTypeValidator(typeText: string, propName: string): string {
+    const normalizedType = this.normalizeType(typeText);
+
+    const unionParts = this.splitTopLevel(normalizedType, "|");
+    if (unionParts.length > 1) {
+      const validators = unionParts.map((part) => this.buildTypeValidator(part, propName));
+      return `v.union([${validators.join(", ")}])`;
+    }
+
+    const intersectParts = this.splitTopLevel(normalizedType, "&");
+    if (intersectParts.length > 1) {
+      const validators = intersectParts.map((part) => this.buildTypeValidator(part, propName));
+      return `v.intersect([${validators.join(", ")}])`;
+    }
+
+    if (normalizedType.endsWith("[]")) {
+      const innerType = this.normalizeType(normalizedType.slice(0, -2));
+      return `v.array(${this.buildTypeValidator(innerType, propName)})`;
+    }
+
+    const arrayArgs = this.parseGenericTypeArgs(normalizedType, "Array");
+    if (arrayArgs) {
+      if (arrayArgs.length !== 1) {
+        throw new Error(
+          `SAV: Invalid Array type "${normalizedType}" on property "${propName}".`,
+        );
+      }
+      const [arrayItem] = arrayArgs;
+      if (!arrayItem) {
+        throw new Error(
+          `SAV: Invalid Array type "${normalizedType}" on property "${propName}".`,
+        );
+      }
+      return `v.array(${this.buildTypeValidator(arrayItem, propName)})`;
+    }
+
+    const readonlyArrayArgs = this.parseGenericTypeArgs(normalizedType, "ReadonlyArray");
+    if (readonlyArrayArgs) {
+      if (readonlyArrayArgs.length !== 1) {
+        throw new Error(
+          `SAV: Invalid ReadonlyArray type "${normalizedType}" on property "${propName}".`,
+        );
+      }
+      const [readonlyArrayItem] = readonlyArrayArgs;
+      if (!readonlyArrayItem) {
+        throw new Error(
+          `SAV: Invalid ReadonlyArray type "${normalizedType}" on property "${propName}".`,
+        );
+      }
+      return `v.array(${this.buildTypeValidator(readonlyArrayItem, propName)})`;
+    }
+
+    if (normalizedType.startsWith("[") && normalizedType.endsWith("]")) {
+      const inner = normalizedType.slice(1, -1).trim();
+      if (!inner) {
+        return "v.tuple([])";
+      }
+      const itemTypes = this.splitTopLevel(inner, ",");
+      const itemValidators = itemTypes.map((itemType) =>
+        this.buildTypeValidator(itemType, propName),
+      );
+      return `v.tuple([${itemValidators.join(", ")}])`;
+    }
+
+    const recordArgs = this.parseGenericTypeArgs(normalizedType, "Record");
+    if (recordArgs) {
+      if (recordArgs.length !== 2) {
+        throw new Error(
+          `SAV: Invalid Record type "${normalizedType}" on property "${propName}".`,
+        );
+      }
+      const [recordKey, recordValue] = recordArgs;
+      if (!recordKey || !recordValue) {
+        throw new Error(
+          `SAV: Invalid Record type "${normalizedType}" on property "${propName}".`,
+        );
+      }
+      const keyValidator = this.buildRecordKeyValidator(recordKey, propName);
+      const valueValidator = this.buildTypeValidator(recordValue, propName);
+      return `v.record(${keyValidator}, ${valueValidator})`;
+    }
+
+    const setArgs = this.parseGenericTypeArgs(normalizedType, "Set");
+    if (setArgs) {
+      if (setArgs.length !== 1) {
+        throw new Error(
+          `SAV: Invalid Set type "${normalizedType}" on property "${propName}".`,
+        );
+      }
+      const [setItem] = setArgs;
+      if (!setItem) {
+        throw new Error(
+          `SAV: Invalid Set type "${normalizedType}" on property "${propName}".`,
+        );
+      }
+      return `v.set(${this.buildTypeValidator(setItem, propName)})`;
+    }
+
+    const mapArgs = this.parseGenericTypeArgs(normalizedType, "Map");
+    if (mapArgs) {
+      if (mapArgs.length !== 2) {
+        throw new Error(
+          `SAV: Invalid Map type "${normalizedType}" on property "${propName}".`,
+        );
+      }
+      const [mapKey, mapValue] = mapArgs;
+      if (!mapKey || !mapValue) {
+        throw new Error(
+          `SAV: Invalid Map type "${normalizedType}" on property "${propName}".`,
+        );
+      }
+      const keyValidator = this.buildTypeValidator(mapKey, propName);
+      const valueValidator = this.buildTypeValidator(mapValue, propName);
+      return `v.map(${keyValidator}, ${valueValidator})`;
+    }
+
+    const promiseArgs = this.parseGenericTypeArgs(normalizedType, "Promise");
+    if (promiseArgs) {
+      throw new Error(
+        `SAV: Unsupported TypeScript type "${normalizedType}" on property "${propName}".`,
+      );
+    }
+
+    if (/^(['"]).*\1$/.test(normalizedType)) {
+      return `v.literal(${JSON.stringify(normalizedType.slice(1, -1))})`;
+    }
+
+    if (/^-?\d+(?:\.\d+)?$/.test(normalizedType)) {
+      return `v.literal(${normalizedType})`;
+    }
+
+    if (normalizedType === "true" || normalizedType === "false") {
+      return `v.literal(${normalizedType})`;
+    }
 
     if (
-      cleanType.endsWith("[]") ||
-      /^Array<.*>$/.test(cleanType) ||
-      /^ReadonlyArray<.*>$/.test(cleanType)
+      !NAME_CONVENTION_TYPES_IGNORE_LOWERCASE.has(normalizedType.toLowerCase()) &&
+      /^[A-Z][A-Za-z0-9_]*(?:\.[A-Z][A-Za-z0-9_]*)*$/.test(normalizedType)
     ) {
-      const innerType = cleanType
-        .replace(/\[\]$/, "")
-        .replace(/^(?:Readonly)?Array<(.*)>$/, "$1")
-        .trim();
-      return [`v.array(${innerType}Schema)`];
+      return `${normalizedType}Schema`;
     }
 
-    // Handle tuple types like [string, number] or [string, number, boolean]
-    if (
-      cleanType.startsWith("[") &&
-      cleanType.endsWith("]")
-    ) // support simple tuples like [string, number]
-    {
-      const innerTypes = cleanType
-        .slice(1, -1)
-        .split(",")
-        .map((t) => t.trim());
-      const validators = innerTypes.map((t) => {
-        const pipes = this.getBasePipes(t);
-        return pipes.length > 1
-          ? `v.pipe(${pipes.join(", ")})`
-          : (pipes[0] ?? "v.any()");
-      });
-      return [`v.tuple([${validators.join(", ")}])`];
-    }
-
-    // Handle custom types (interfaces/DTOs)
-    if (
-      !NAME_CONVENTION_TYPES_IGNORE_LOWERCASE.has(cleanType.toLowerCase()) &&
-      /^[A-Z]/.test(cleanType)
-    ) {
-      return [`${cleanType}Schema`];
-    }
-
-    switch (cleanType) {
+    switch (normalizedType) {
       case "string":
-        return ["v.string()"];
+        return "v.string()";
       case "number":
-        return ["v.string()", "v.transform(Number)", "v.number()"];
+        return "v.transform(v.string(), (input) => input === \"\" ? Number.NaN : Number(input), v.number())";
       case "boolean":
-        return [
-          "v.unknown()",
-          'v.transform(v => v === "on" || v === "true" || v === true)',
-          "v.boolean()",
-        ];
+        return "v.transform(v.unknown(), v => v === \"on\" || v === \"true\" || v === true, v.boolean())";
+      case "bigint":
+        return "v.bigint()";
+      case "symbol":
+        return "v.symbol()";
       case "Date":
-        return ["v.string()", "v.transform(v => new Date(v))", "v.date()"];
+        return "v.transform(v.string(), v => new Date(v), v.date())";
+      case "Blob":
+        return "v.blob()";
       case "File":
-        return ["v.instance(File)"];
+        // valibot v0.30 has no v.file(); File can be validated via instanceof.
+        return "v.instance(File)";
+      case "unknown":
+        return "v.unknown()";
+      case "any":
+        return "v.any()";
+      case "never":
+        return "v.never()";
+      case "null":
+        return "v.null_()";
+      case "undefined":
+        return "v.undefined_()";
+      case "void":
+        return "v.void_()";
       default:
-        return ["v.any()"];
+        return "v.any()";
     }
+  }
+
+  private buildRecordKeyValidator(typeText: string, propName: string): string {
+    const normalizedType = this.normalizeType(typeText);
+
+    if (normalizedType === "string") {
+      return "v.string()";
+    }
+
+    const unionParts = this.splitTopLevel(normalizedType, "|");
+    if (unionParts.length > 1 && unionParts.every((part) => /^(['"]).*\1$/.test(part))) {
+      const values = unionParts.map((part) => JSON.stringify(part.slice(1, -1))).join(", ");
+      return `v.picklist([${values}])`;
+    }
+
+    throw new Error(
+      `SAV: Unsupported Record key type "${normalizedType}" on property "${propName}".`,
+    );
+  }
+
+  private normalizeType(typeText: string): string {
+    let value = typeText.trim();
+
+    while (value.startsWith("(") && value.endsWith(")") && this.isWrappedByOuterParentheses(value)) {
+      value = value.slice(1, -1).trim();
+    }
+
+    return value;
+  }
+
+  private isWrappedByOuterParentheses(value: string): boolean {
+    let depth = 0;
+
+    for (let index = 0; index < value.length; index++) {
+      const char = value[index];
+
+      if (char === "(") {
+        depth += 1;
+      } else if (char === ")") {
+        depth -= 1;
+        if (depth === 0 && index < value.length - 1) {
+          return false;
+        }
+      }
+    }
+
+    return depth === 0;
+  }
+
+  private parseGenericTypeArgs(typeText: string, genericName: string): string[] | undefined {
+    const prefix = `${genericName}<`;
+
+    if (!typeText.startsWith(prefix) || !typeText.endsWith(">")) {
+      return undefined;
+    }
+
+    const inner = typeText.slice(prefix.length, -1).trim();
+    if (!inner) {
+      return [];
+    }
+
+    return this.splitTopLevel(inner, ",");
+  }
+
+  private splitTopLevel(input: string, separator: "|" | "&" | ","): string[] {
+    const parts: string[] = [];
+    let current = "";
+    let depthParen = 0;
+    let depthAngle = 0;
+    let depthSquare = 0;
+    let depthCurly = 0;
+    let quote: "'" | '"' | undefined;
+
+    for (let index = 0; index < input.length; index++) {
+      const char = input[index];
+      const prev = input[index - 1];
+
+      if (quote) {
+        current += char;
+        if (char === quote && prev !== "\\") {
+          quote = undefined;
+        }
+        continue;
+      }
+
+      if (char === "'" || char === '"') {
+        quote = char;
+        current += char;
+        continue;
+      }
+
+      if (char === "(") {
+        depthParen += 1;
+      } else if (char === ")") {
+        depthParen = Math.max(0, depthParen - 1);
+      } else if (char === "<") {
+        depthAngle += 1;
+      } else if (char === ">") {
+        depthAngle = Math.max(0, depthAngle - 1);
+      } else if (char === "[") {
+        depthSquare += 1;
+      } else if (char === "]") {
+        depthSquare = Math.max(0, depthSquare - 1);
+      } else if (char === "{") {
+        depthCurly += 1;
+      } else if (char === "}") {
+        depthCurly = Math.max(0, depthCurly - 1);
+      }
+
+      if (
+        char === separator &&
+        depthParen === 0 &&
+        depthAngle === 0 &&
+        depthSquare === 0 &&
+        depthCurly === 0
+      ) {
+        const trimmed = current.trim();
+        if (trimmed) {
+          parts.push(trimmed);
+        }
+        current = "";
+        continue;
+      }
+
+      current += char;
+    }
+
+    const tail = current.trim();
+    if (tail) {
+      parts.push(tail);
+    }
+
+    return parts;
   }
 
   private getStringLiteralUnionValidator(
@@ -195,8 +443,7 @@ export class SAVCompiler {
     rules: string[],
     propName: string,
   ): string | undefined {
-    const members = tsType
-      .split("|")
+    const members = this.splitTopLevel(tsType, "|")
       .map((member) => member.trim())
       .filter(Boolean);
 

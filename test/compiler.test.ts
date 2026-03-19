@@ -55,7 +55,7 @@ describe("SAVCompiler", () => {
     expect(output).toContain("export const CreateUserDTOSchema = v.object({");
     expect(output).toContain("email: v.string([v.email()])");
     expect(output).toContain(
-      "age: v.coerce(v.number([v.minValue(18), v.maxValue(60)]), (input) => input === \"\" ? Number.NaN : Number(input))",
+      "age: v.transform(v.string(), (input) => input === \"\" ? Number.NaN : Number(input), v.number([v.minValue(18), v.maxValue(60)]))",
     );
     expect(output).toContain("nickname: v.optional(v.string())");
     expect(output).toContain('role: v.picklist(["admin", "user"])');
@@ -80,12 +80,45 @@ describe("SAVCompiler", () => {
     );
   });
 
+  it("supports common structural TypeScript types", async () => {
+    const filePath = await createSourceFile(
+      "structural-types.ts",
+      `
+      export interface StructuralTypesDTO {
+        tags: string[];
+        pair: [string, number];
+        scores: Record<string, number>;
+        ids: Set<number>;
+        byId: Map<string, number>;
+      }
+      `,
+    );
+
+    const compiler = new SAVCompiler();
+    const output = compiler.processFile(filePath);
+
+    expect(output).toContain("export const StructuralTypesDTOSchema = v.object({");
+    expect(output).toContain("tags: v.array(v.string())");
+    expect(output).toContain(
+      "pair: v.tuple([v.string(), v.transform(v.string(), (input) => input === \"\" ? Number.NaN : Number(input), v.number())])",
+    );
+    expect(output).toContain(
+      "scores: v.record(v.string(), v.transform(v.string(), (input) => input === \"\" ? Number.NaN : Number(input), v.number()))",
+    );
+    expect(output).toContain(
+      "ids: v.set(v.transform(v.string(), (input) => input === \"\" ? Number.NaN : Number(input), v.number()))",
+    );
+    expect(output).toContain(
+      "byId: v.map(v.string(), v.transform(v.string(), (input) => input === \"\" ? Number.NaN : Number(input), v.number()))",
+    );
+  });
+
   it("throws when DTO includes unsupported TypeScript types", async () => {
     const filePath = await createSourceFile(
       "invalid-type.ts",
       `
       export interface InvalidTypeDTO {
-        tags: string[];
+        task: Promise<string>;
       }
       `,
     );
@@ -93,7 +126,7 @@ describe("SAVCompiler", () => {
     const compiler = new SAVCompiler();
 
     expect(() => compiler.processFile(filePath)).toThrow(
-      /Unsupported TypeScript type "string\[\]"/,
+      /Unsupported TypeScript type "Promise<string>"/,
     );
   });
 

@@ -50,7 +50,16 @@ export function parseFormData(formData: FormData): Record<string, unknown> {
 
       // ถ้าเป็นชิ้นสุดท้าย (เช่น 'id') ให้ใส่ค่า value ลงไปเลย
       if (partIndex === parts.length - 1) {
-        current[part!] = value;
+        const existing = current[part!];
+        if (existing !== undefined) {
+          if (Array.isArray(existing)) {
+            existing.push(value);
+          } else {
+            current[part!] = [existing, value];
+          }
+        } else {
+          current[part!] = value;
+        }
       } else {
         if (!current[part!]) {
           current[part!] = isNaN(Number(nextPart)) ? {} : [];
