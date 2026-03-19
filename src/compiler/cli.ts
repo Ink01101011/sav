@@ -52,9 +52,13 @@ program
     console.log("SAV: Starting compiler...");
 
     const compiler = new SAVCompiler();
+    const folderSuffix = String(options.suffix ?? "-schema").trim() || "-schema";
+    const generatedFileSuffix = normalizeGeneratedFileSuffix(
+      String(options.suffixFile ?? ".gen"),
+    );
     const files = await glob(options.input, {
       absolute: true,
-      ignore: ["**/*.gen.ts", "**/dist/**", "**/node_modules/**"],
+      ignore: [`**/*${generatedFileSuffix}.ts`, "**/dist/**", "**/node_modules/**"],
     });
 
     if (files.length === 0) {
@@ -63,10 +67,6 @@ program
     }
 
     const sortedFiles = [...files].sort();
-    const folderSuffix = String(options.suffix ?? "-schema").trim() || "-schema";
-    const generatedFileSuffix = normalizeGeneratedFileSuffix(
-      String(options.suffixFile ?? ".gen"),
-    );
 
     const emitSchemaModules = (file: string, outputDir: string): number => {
       const schemaModules = compiler.processFileAsModules(file, generatedFileSuffix);
