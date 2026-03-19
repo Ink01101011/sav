@@ -7,15 +7,13 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "sav-compiler": "sav-compiler generate --input 'actions/**/*.ts'"
+    "valiact": "valiact generate --input 'actions/**/*.ts' --output 'schemas/' --suffix '-validator' --suffix-file '.schema.ts'"
   },
   "dependencies": {
     "next": "16.1.7",
     "react": "19.2.3",
     "react-dom": "19.2.3",
-    "sav-compiler": "^0.1.0",
-    "sav-core": "^0.1.0",
-    "sav-react": "^0.1.0"
+    "valiact": "^0.1.5"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

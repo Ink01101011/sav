@@ -1,5 +1,5 @@
 // app/actions.ts
-import { createAction } from "sav-core";
+import { createAction } from "valiact/core";
 import { UserDTOSchema } from "./user.gen"; // ไฟล์ที่ SAV เจนให้
 
 export const registerUser = createAction(UserDTOSchema, async (data) => {

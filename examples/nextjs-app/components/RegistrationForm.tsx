@@ -1,10 +1,10 @@
 "use client";
 
 import { registerUser } from "@/actions";
-import { useSAVAction } from "sav-react";
+import { useSAVAction } from "valiact/react";
 
 export function RegisterForm() {
-  const { formAction, isPending, getFieldError, errors, data } = useSAVAction(
+  const { onsubmit, isPending, getFieldError, errors, data } = useSAVAction(
     registerUser,
     {
       onSuccess: (data) => {
@@ -18,10 +18,8 @@ export function RegisterForm() {
 
   return (
     <form
-      action={formAction}
-      onSubmit={(e) => {
-        e.preventDefault();
-      }}
+
+      onSubmit={onsubmit}
       className="space-y-4 border-2 border-gray-600 rounded-md p-4"
     >
       <div>
