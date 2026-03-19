@@ -13,6 +13,12 @@ function hasFileExtension(targetPath: string): boolean {
   return path.extname(path.basename(targetPath)) !== "";
 }
 
+function normalizeGeneratedFileSuffix(suffix: string): string {
+  const trimmed = suffix.trim();
+  const withoutTs = trimmed.replace(/\.ts$/i, "");
+  return withoutTs || ".gen";
+}
+
 const program = new Command();
 
 program
@@ -34,12 +40,12 @@ program
   )
   .option(
     "-s, --suffix <suffix>",
-    "Optional suffix for generated schema files",
+    "Optional suffix for generated schema folders when a source has multiple DTOs",
     "-schema",
   )
   .option(
     "-sf, --suffix-file <suffix>",
-    "Optional suffix for generated schema files when using single file output",
+    "Optional suffix for generated .ts schema files (e.g. .gen, -schema, .schema.ts)",
     ".gen",
   )
   .action(async (options) => {
@@ -57,9 +63,13 @@ program
     }
 
     const sortedFiles = [...files].sort();
+    const folderSuffix = String(options.suffix ?? "-schema").trim() || "-schema";
+    const generatedFileSuffix = normalizeGeneratedFileSuffix(
+      String(options.suffixFile ?? ".gen"),
+    );
 
     const emitSchemaModules = (file: string, outputDir: string): number => {
-      const schemaModules = compiler.processFileAsModules(file);
+      const schemaModules = compiler.processFileAsModules(file, generatedFileSuffix);
 
       if (schemaModules.length === 0) {
         return 0;
@@ -68,11 +78,11 @@ program
       const fileObject = path.parse(file);
       const legacyOutPath = path.join(
         outputDir,
-        `${fileObject.name}${options.suffixFile}.ts`,
+        `${fileObject.name}${generatedFileSuffix}.ts`,
       );
       const schemasDirPath = path.join(
         outputDir,
-        `${fileObject.name}${options.suffix}`,
+        `${fileObject.name}${folderSuffix}`,
       );
 
       if (schemaModules.length === 1) {
@@ -102,7 +112,7 @@ program
         .join("\n")}\n`;
       writeFileSync(path.join(schemasDirPath, "index.ts"), indexContent);
 
-      const legacyOutput = `${GENERATED_FILE_HEADER}export * from "./${fileObject.name}${options.suffix}";\n`;
+      const legacyOutput = `${GENERATED_FILE_HEADER}export * from "./${fileObject.name}${folderSuffix}";\n`;
       writeFileSync(legacyOutPath, legacyOutput);
 
       console.log(`SAV: Generated ${path.relative(process.cwd(), schemasDirPath)}`);

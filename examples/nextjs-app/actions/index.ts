@@ -1,6 +1,6 @@
 // app/actions.ts
 import { createAction } from "valiact/core";
-import { UserDTOSchema } from "./user.gen"; // ไฟล์ที่ SAV เจนให้
+import { UserDTOSchema } from "@/schemas/user.schema"; // ไฟล์ที่ SAV เจนให้
 
 export const registerUser = createAction(UserDTOSchema, async (data) => {
   // 'data.age' จะเป็น number แน่นอน 100% เพราะผ่านด่านหน้ามาแล้ว

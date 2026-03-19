@@ -58,6 +58,12 @@ export type GeneratedSchemaModule = {
   content: string;
 };
 
+function normalizeGeneratedFileSuffix(suffix: string): string {
+  const trimmed = suffix.trim();
+  const withoutTs = trimmed.replace(/\.ts$/i, "");
+  return withoutTs || ".gen";
+}
+
 export class SAVCompiler {
   constructor(private readonly project: Project = new Project()) {}
 
@@ -74,11 +80,18 @@ export class SAVCompiler {
     return `${VALIBOT_IMPORT}${schemaBlocks}`;
   }
 
-  processFileAsModules(filePath: string): GeneratedSchemaModule[] {
+  processFileAsModules(
+    filePath: string,
+    generatedFileSuffix = ".gen",
+  ): GeneratedSchemaModule[] {
+    const normalizedSuffix = normalizeGeneratedFileSuffix(generatedFileSuffix);
     const interfaces = this.getDTOInterfaces(filePath);
     const interfaceNames = new Set(interfaces.map((intf) => intf.getName()));
     const fileNameByInterface = new Map(
-      interfaces.map((intf) => [intf.getName(), this.toSchemaFileName(intf.getName())]),
+      interfaces.map((intf) => [
+        intf.getName(),
+        this.toSchemaFileName(intf.getName(), normalizedSuffix),
+      ]),
     );
 
     return interfaces.map((intf) => {
@@ -106,7 +119,7 @@ export class SAVCompiler {
       return {
         interfaceName: intf.getName(),
         schemaName: `${intf.getName()}Schema`,
-        fileName: this.toSchemaFileName(intf.getName()),
+        fileName: this.toSchemaFileName(intf.getName(), normalizedSuffix),
         content: `${VALIBOT_IMPORT}${importLines ? `${importLines}\n\n` : ""}${schemaDeclaration}\n`,
       };
     });
@@ -143,8 +156,8 @@ export class SAVCompiler {
       .filter((schemaName) => schemaDeclaration.includes(schemaName));
   }
 
-  private toSchemaFileName(interfaceName: string): string {
-    return `${this.toKebabCase(interfaceName)}.gen.ts`;
+  private toSchemaFileName(interfaceName: string, suffix: string): string {
+    return `${this.toKebabCase(interfaceName)}${suffix}.ts`;
   }
 
   private toKebabCase(value: string): string {

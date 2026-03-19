@@ -4,8 +4,8 @@
  */
 import * as v from "valibot";
 
-import { CustomerContactDTOSchema } from "./customer-contact-dto.gen";
-import { CustomerAddressDTOSchema } from "./customer-address-dto.gen";
+import { CustomerContactDTOSchema } from "./customer-contact-dto.schema";
+import { CustomerAddressDTOSchema } from "./customer-address-dto.schema";
 
 export const CustomerInfoDTOSchema = v.object({
   username: v.string(),

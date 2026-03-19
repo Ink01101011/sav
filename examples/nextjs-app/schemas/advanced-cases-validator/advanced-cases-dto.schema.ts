@@ -4,9 +4,9 @@
  */
 import * as v from "valibot";
 
-import { MediaAssetDTOSchema } from "./media-asset-dto.gen";
-import { PublishingWindowDTOSchema } from "./publishing-window-dto.gen";
-import { AnalyticsBucketDTOSchema } from "./analytics-bucket-dto.gen";
+import { MediaAssetDTOSchema } from "./media-asset-dto.schema";
+import { PublishingWindowDTOSchema } from "./publishing-window-dto.schema";
+import { AnalyticsBucketDTOSchema } from "./analytics-bucket-dto.schema";
 
 export const AdvancedCasesDTOSchema = v.object({
   title: v.string([v.minLength(3), v.maxLength(80)]),

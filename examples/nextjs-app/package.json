@@ -7,13 +7,13 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "valiact": "valiact generate --input 'actions/**/*.ts' --output 'schemas/' --suffix '-validator' --suffix-file '.schema.ts'"
+    "valiact": "valiact generate --input 'actions/**/*.ts' --output 'schemas/' --suffix '-validator' --suffix-file '.schema'"
   },
   "dependencies": {
     "next": "16.1.7",
     "react": "19.2.3",
     "react-dom": "19.2.3",
-    "valiact": "^0.1.7"
+    "valiact": "^0.1.8"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

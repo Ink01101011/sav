@@ -4,8 +4,8 @@
  */
 import * as v from "valibot";
 
-import { AddressDTOSchema } from "./address-dto.gen";
-import { ExperienceDTOSchema } from "./experience-dto.gen";
+import { AddressDTOSchema } from "./address-dto.schema";
+import { ExperienceDTOSchema } from "./experience-dto.schema";
 
 export const JobApplicationDTOSchema = v.object({
   email: v.string([v.email("อีเมลไม่ถูกต้อง")]),

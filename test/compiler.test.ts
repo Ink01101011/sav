@@ -218,6 +218,33 @@ describe("SAVCompiler", () => {
     expect(profileModule?.content).toContain("address: AddressDTOSchema");
   });
 
+  it("applies custom generated file suffix to module names and local imports", async () => {
+    const filePath = await createSourceFile(
+      "multi-dto-custom-suffix.ts",
+      `
+      export interface AddressDTO {
+        street: string;
+      }
+
+      export interface ProfileDTO {
+        address: AddressDTO;
+      }
+      `,
+    );
+
+    const compiler = new SAVCompiler();
+    const modules = compiler.processFileAsModules(filePath, ".schema");
+
+    const addressModule = modules.find((module) => module.interfaceName === "AddressDTO");
+    const profileModule = modules.find((module) => module.interfaceName === "ProfileDTO");
+
+    expect(addressModule?.fileName).toBe("address-dto.schema.ts");
+    expect(profileModule?.fileName).toBe("profile-dto.schema.ts");
+    expect(profileModule?.content).toContain(
+      'import { AddressDTOSchema } from "./address-dto.schema";',
+    );
+  });
+
   it("throws when DTO includes unsupported TypeScript types", async () => {
     const filePath = await createSourceFile(
       "invalid-type.ts",

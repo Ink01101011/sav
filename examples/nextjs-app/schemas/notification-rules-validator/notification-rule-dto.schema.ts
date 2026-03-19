@@ -4,10 +4,10 @@
  */
 import * as v from "valibot";
 
-import { EmailChannelDTOSchema } from "./email-channel-dto.gen";
-import { SmsChannelDTOSchema } from "./sms-channel-dto.gen";
-import { AuditInfoDTOSchema } from "./audit-info-dto.gen";
-import { RevisionInfoDTOSchema } from "./revision-info-dto.gen";
+import { EmailChannelDTOSchema } from "./email-channel-dto.schema";
+import { SmsChannelDTOSchema } from "./sms-channel-dto.schema";
+import { AuditInfoDTOSchema } from "./audit-info-dto.schema";
+import { RevisionInfoDTOSchema } from "./revision-info-dto.schema";
 
 export const NotificationRuleDTOSchema = v.object({
   channel: v.union([EmailChannelDTOSchema, SmsChannelDTOSchema]),
