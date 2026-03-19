@@ -263,11 +263,9 @@ export class SAVCompiler {
       return `v.literal(${normalizedType})`;
     }
 
-    if (
-      !NAME_CONVENTION_TYPES_IGNORE_LOWERCASE.has(normalizedType.toLowerCase()) &&
-      /^[A-Z][A-Za-z0-9_]*(?:\.[A-Z][A-Za-z0-9_]*)*$/.test(normalizedType)
-    ) {
-      return `${normalizedType}Schema`;
+    const referencedSchema = this.getReferencedSchema(normalizedType);
+    if (referencedSchema) {
+      return referencedSchema;
     }
 
     switch (normalizedType) {
@@ -321,6 +319,27 @@ export class SAVCompiler {
     throw new Error(
       `SAV: Unsupported Record key type "${normalizedType}" on property "${propName}".`,
     );
+  }
+
+  private getReferencedSchema(typeText: string): string | undefined {
+    if (NAME_CONVENTION_TYPES_IGNORE_LOWERCASE.has(typeText.toLowerCase())) {
+      return undefined;
+    }
+
+    // ts-morph can emit imported references as: import("/abs/path").EmployeeDTO
+    const importReference = typeText.match(/^import\((['"]).*\1\)\.(.+)$/)?.[2]?.trim();
+    const candidate = importReference ?? typeText;
+
+    if (!/^[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*$/.test(candidate)) {
+      return undefined;
+    }
+
+    const leafName = candidate.split(".").at(-1) ?? candidate;
+    if (!/^[A-Z]/.test(leafName)) {
+      return undefined;
+    }
+
+    return `${candidate}Schema`;
   }
 
   private normalizeType(typeText: string): string {

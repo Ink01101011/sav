@@ -80,7 +80,7 @@ describe("SAVCompiler", () => {
     );
   });
 
-  it("supports common structural TypeScript types", async () => {
+  it("supports common structural TypeScript types with DTO references", async () => {
     const filePath = await createSourceFile(
       "structural-types.ts",
       `
@@ -111,6 +111,78 @@ describe("SAVCompiler", () => {
     expect(output).toContain(
       "byId: v.map(v.string(), v.transform(v.string(), (input) => input === \"\" ? Number.NaN : Number(input), v.number()))",
     );
+  });
+
+
+  it("supports common structural TypeScript types", async () => {
+    const filePath = await createSourceFile(
+      "structural-types.ts",
+      `
+      export interface StructuralTypesDTO {
+        tags: string[];
+        pair: [string, number];
+        scores: Record<string, number>;
+        ids: Set<number>;
+        byId: Map<string, number>;
+        employee: EmployeeDTO;
+      }
+      
+      export interface EmployeeDTO {
+        employeeId: number;
+      }
+      `,
+    );
+
+    const compiler = new SAVCompiler();
+    const output = compiler.processFile(filePath);
+
+    expect(output).toContain("export const StructuralTypesDTOSchema = v.object({");
+    expect(output).toContain("tags: v.array(v.string())");
+    expect(output).toContain(
+      "pair: v.tuple([v.string(), v.transform(v.string(), (input) => input === \"\" ? Number.NaN : Number(input), v.number())])",
+    );
+    expect(output).toContain(
+      "scores: v.record(v.string(), v.transform(v.string(), (input) => input === \"\" ? Number.NaN : Number(input), v.number()))",
+    );
+    expect(output).toContain(
+      "ids: v.set(v.transform(v.string(), (input) => input === \"\" ? Number.NaN : Number(input), v.number()))",
+    );
+    expect(output).toContain(
+      "byId: v.map(v.string(), v.transform(v.string(), (input) => input === \"\" ? Number.NaN : Number(input), v.number()))",
+    );
+
+    expect(output).toContain("employee: EmployeeDTOSchema");
+
+    expect(output).toContain("export const EmployeeDTOSchema = v.object({");
+  });
+
+  it("normalizes imported DTO references from ts-morph type text", async () => {
+    const sourcePath = await createSourceFile(
+      "source.ts",
+      `
+      import type { EmployeeDTO } from "./employee";
+
+      export interface CompanyDTO {
+        employee: EmployeeDTO;
+      }
+      `,
+    );
+
+    const employeePath = await createSourceFile(
+      "employee.ts",
+      `
+      export interface EmployeeDTO {
+        employeeId: number;
+      }
+      `,
+    );
+
+    const compiler = new SAVCompiler();
+    const output = compiler.processFiles([sourcePath, employeePath]);
+
+    expect(output).toContain("employee: EmployeeDTOSchema");
+    expect(output).not.toContain("import(\"");
+    expect(output).toContain("export const EmployeeDTOSchema = v.object({");
   });
 
   it("throws when DTO includes unsupported TypeScript types", async () => {
