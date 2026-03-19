@@ -1,6 +1,6 @@
 {
   "name": "valiact",
-  "version": "0.1.5",
+  "version": "0.1.7",
   "description": "Server Action Validation - runtime helpers, React bindings, and schema compiler.",
   "license": "MIT",
   "type": "module",
